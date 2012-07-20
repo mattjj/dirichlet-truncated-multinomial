@@ -4,7 +4,8 @@ from warnings import warn
 
 from simplex import proj_to_2D, mesh
 from dirichlet import log_censored_dirichlet_density
-from sampling import density_from_samples_parallel, dv
+from sampling import density_from_samples_parallel
+from parallel import dv
 
 def kldist(pvec,qvec):
     '''between two pmfs (or KDEs evaluated over same supports)'''
@@ -16,11 +17,11 @@ def kldist_samples(samples,q):
     to q
 
     samples is a list of points in X
-    q is a function with domain X
+    q is a function with domain X, like from a call to density.kde
     must have \int{x \in X} q(x) \approx 1
     '''
-    raise NotImplementedError
-
+    N = samples.shape[0]
+    return -1./N * np.log(N * q(samples)).sum()
 
 def get_kldivs(mhsamples_list,auxsamples_list,ncomputepoints,params={'alpha':2.,'beta':30.,'data':np.array([[0,2,0],[0,0,0],[0,0,0]])},plotting=True):
     alpha, beta, data = params['alpha'], params['beta'], params['data']

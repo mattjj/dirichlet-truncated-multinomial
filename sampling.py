@@ -6,12 +6,7 @@ from warnings import warn
 
 from dirichlet import log_dirichlet_density, log_censored_dirichlet_density
 from simplex import mesh, proj_to_2D
-
-class dummy_directview(object):
-    map_sync = map
-    __len__ = lambda self: 1
-    purge_results = lambda x,y: None
-dv = dummy_directview()
+from parallel import dv
 
 ### SAMPLING
 
@@ -39,7 +34,6 @@ def generate_pi_samples_withauxvars(alpha,n_samples,data):
 
     return samples
 
-
 def generate_pi_samples_mh(alpha,n_samples,data,beta):
     starttime = time.time()
     K = data.shape[0]
@@ -60,7 +54,6 @@ def generate_pi_samples_mh(alpha,n_samples,data,beta):
     for ii in range(n_samples):
         ### make a proposal
         pi_prime = np.random.dirichlet(beta * pi)
-
         ### get proposal probability and sample it
         new_val = log_censored_dirichlet_density(pi_prime,alpha=alpha,data=data)
         if new_val > -np.inf:
@@ -90,30 +83,12 @@ def get_samples_parallel(nruns,nrawsamples,params={'alpha':2.,'beta':30.,'data':
 
     return mhsamples_list, auxsamples_list
 
-### DENSITIES FROM SAMPLES
-
-def density_from_samples(samples,evalpts,sigma=0.1,normed=True):
-    warn('not properly normalized!!') # TODO
-    # for D dimensions, evalpts is N x D, samples is Ns x D
-    out = np.zeros(len(evalpts))
-    for chunk in np.array_split(samples,len(samples)//100+1):
-        out += np.exp(-0.5*((chunk[:,na,:] - evalpts[na,:,:])**2).sum(2)/sigma**2).sum(0)
-    if normed:
-        out /= out.sum()
-    return out
-
-def density_from_samples_parallel(samples,evalpts,sigma=0.1,normed=True):
-    import operator
-    maxsize = 2000 # largest array constructed in mem will be len(evalpts)*maxsize*8 bytes
-    out = reduce(operator.add,dv.map_sync(lambda x: density_from_samples(x[0],x[1],x[2],normed=False),
-            [(a,evalpts,sigma) for a in np.array_split(samples,max(len(samples)//maxsize + 1,len(dv)))]))
-    if normed:
-        out /= out.sum()
-    return out
-
 ### TESTS
 
+### JUNKYARD! TODO clean me
+
 def test_density_from_samples(nrawsamples=50000,burnin=2000,useevery=5,plotting=True):
+    warn('old and busted!')
     from matplotlib import pyplot as plt
     from scipy.interpolate import griddata
 
@@ -138,6 +113,7 @@ def test_density_from_samples(nrawsamples=50000,burnin=2000,useevery=5,plotting=
     return samples, foo
 
 def test_density_from_mhsamples(nrawsamples=250000,burnin=20000,useevery=500,beta=30,plotting=True):
+    warn('old and busted!')
     from matplotlib import pyplot as plt
     from scipy.interpolate import griddata
 
@@ -163,6 +139,7 @@ def test_density_from_mhsamples(nrawsamples=250000,burnin=20000,useevery=500,bet
     return samples, foo
 
 def test_density_from_mhsamples_parallel(nrawsamples,burnin,useevery,beta,plotting=True):
+    warn('old and busted!')
     from matplotlib import pyplot as plt
     from scipy.interpolate import griddata
     import operator
