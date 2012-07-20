@@ -19,7 +19,7 @@ def kldist_samples(samples,q):
     q is a function with domain X
     must have \int{x \in X} q(x) \approx 1
     '''
-
+    raise NotImplementedError
 
 
 def get_kldivs(mhsamples_list,auxsamples_list,ncomputepoints,params={'alpha':2.,'beta':30.,'data':np.array([[0,2,0],[0,0,0],[0,0,0]])},plotting=True):
