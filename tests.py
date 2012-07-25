@@ -8,7 +8,7 @@ from sampling import density_from_samples_parallel
 from parallel import dv
 
 def kldist(pvec,qvec):
-    '''between two pmfs (or KDEs evaluated over same supports)'''
+    '''between two pmfs (or KDEs evaluated over same supports and normalized)'''
     return np.sum(np.where(np.logical_or(pvec==0,qvec==0),0.,pvec*(np.log(pvec) - np.log(qvec))))
 
 def kldist_samples(samples,q):
@@ -23,7 +23,16 @@ def kldist_samples(samples,q):
     N = samples.shape[0]
     return -1./N * np.log(N * q(samples)).sum()
 
+def get_rhat(mhsamples_list,auxsamples_list,ncomputepoints,params={'alpha':2.,'beta':30.,'data':np.array([[0,2,0],[0,0,0],[0,0,0]])},plotting=True):
+    alpha, beta, data = params['alpha'], params['beta'], params['data']
+
+    for idx, (samples_list, name) in enumerate(zip([mhsamples_list,auxsamples_list],['mh','aux'])):
+        # TODO
+        pass
+
+
 def get_kldivs(mhsamples_list,auxsamples_list,ncomputepoints,params={'alpha':2.,'beta':30.,'data':np.array([[0,2,0],[0,0,0],[0,0,0]])},plotting=True):
+    warn('this is still based on old density version')
     alpha, beta, data = params['alpha'], params['beta'], params['data']
 
     mesh3D = mesh(100)
