@@ -3,6 +3,7 @@ import numpy as np
 na = np.newaxis
 import time
 from warnings import warn
+import cPickle
 
 from dirichlet import log_dirichlet_density, log_censored_dirichlet_density
 from simplex import mesh, proj_to_2D
@@ -82,6 +83,18 @@ def get_samples_parallel(nruns,nrawsamples,params={'alpha':2.,'beta':30.,'data':
     dv.purge_results('all')
 
     return mhsamples_list, auxsamples_list
+
+def run_and_save_samples(*args,**kwargs):
+    filename = kwargs['filename'] if 'filename' in kwargs else 'samples'
+    mhsamples_list, auxsamples_list = get_samples_parallel(*args,**kwargs)
+    with open(filename,'w') as outfile:
+        cPickle.dump((mhsamples_list, auxsamples_list), outfile, protocol=2)
+    return mhsamples_list, auxsamples_list
+
+def load_samples(filename='samples'):
+    with open(filename,'r') as infile:
+        samples = cPickle.load(infile)
+    return samples
 
 ### TESTS
 

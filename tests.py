@@ -153,6 +153,9 @@ def get_statistic_convergence(mhsamples_list,auxsamples_list,ncomputepoints,para
 
     return outs, (truemean, truevar)
 
+def get_SRF(mhsamples_list,auxsamples_list,ncomputepoints,plotting=True):
+    pass
+
 # TODO higher dim experiment
 
 # TODO try higher dimensions (cant use kl measure, maybe how fast it finds a
