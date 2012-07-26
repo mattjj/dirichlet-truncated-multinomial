@@ -7,7 +7,7 @@ import cPickle
 
 from dirichlet import log_dirichlet_density, log_censored_dirichlet_density
 from simplex import mesh, proj_to_2D
-from parallel import dv
+import parallel
 
 ### SAMPLING
 
@@ -52,7 +52,7 @@ def generate_pi_samples_mh(alpha,n_samples,data,beta):
     # proposals -= np.dot(proposals,np.ones(K)/K)[:,na]
 
     # loop mh proposals
-    for ii in range(n_samples):
+    while len(samples) < n_samples:
         ### make a proposal
         pi_prime = np.random.dirichlet(beta * pi)
         ### get proposal probability and sample it
@@ -69,23 +69,28 @@ def generate_pi_samples_mh(alpha,n_samples,data,beta):
             samples.append(pi)
 
     print 'done drawing samples in %0.2f seconds' % (time.time() - starttime)
-    print '%d proposals, %d accepted, acceptance ratio %0.4f' % (n_samples , n_accepts, n_accepts / n_samples)
+    print '%d valid proposals, %d accepted, acceptance ratio %0.4f' % (n_samples, n_accepts, n_accepts / n_samples)
 
     return samples
 
-def get_samples_parallel(nruns,nrawsamples,params={'alpha':2.,'beta':30.,'data':np.array([[0,2,0],[0,0,0],[0,0,0]])}):
+def get_samples_parallel(nruns,nsamples,params={'alpha':2.,'beta':30.,'data':np.array([[0,2,0],[0,0,0],[0,0,0]])}):
     # data shape sets dimensionality
     alpha, beta, data = params['alpha'], params['beta'], params['data']
 
-    mhsamples_list  = dv.map_sync(lambda tup: generate_pi_samples_mh(tup[0],tup[1],tup[2],tup[3]), [(alpha,nrawsamples,data,beta)]*nruns)
-    auxsamples_list = dv.map_sync(lambda tup: generate_pi_samples_withauxvars(tup[0],tup[1],tup[2]), [(alpha,nrawsamples,data)]*nruns)
+    mhsamples_list  = parallel.dv.map_sync(lambda tup: generate_pi_samples_mh(tup[0],tup[1],tup[2],tup[3]), [(alpha,nsamples,data,beta)]*nruns)
+    auxsamples_list = parallel.dv.map_sync(lambda tup: generate_pi_samples_withauxvars(tup[0],tup[1],tup[2]), [(alpha,nsamples,data)]*nruns)
 
-    dv.purge_results('all')
+    parallel.dv.purge_results('all')
 
     return mhsamples_list, auxsamples_list
 
 def run_and_save_samples(*args,**kwargs):
-    filename = kwargs['filename'] if 'filename' in kwargs else 'samples'
+    if 'filename' in kwargs:
+        filename = kwargs['filename']
+        del kwargs['filename']
+    else:
+        filename = 'samples'
+
     mhsamples_list, auxsamples_list = get_samples_parallel(*args,**kwargs)
     with open(filename,'w') as outfile:
         cPickle.dump((mhsamples_list, auxsamples_list), outfile, protocol=2)
@@ -95,6 +100,4 @@ def load_samples(filename='samples'):
     with open(filename,'r') as infile:
         samples = cPickle.load(infile)
     return samples
-
-### TESTS
 

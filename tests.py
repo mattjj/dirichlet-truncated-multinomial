@@ -2,11 +2,10 @@ from __future__ import division
 import numpy as np
 na = np.newaxis
 from warnings import warn
+import scipy.linalg
 
-from simplex import proj_to_2D, mesh
+from simplex import mesh, proj_matrix
 from dirichlet import log_censored_dirichlet_density
-from sampling import density_from_samples_parallel
-from parallel import dv
 from density import kde
 
 def chunk_indices(T,npoints):
@@ -33,22 +32,21 @@ def kldist_samples(samples,q):
     N = samples.shape[0]
     return -1./N * np.log(N * q(samples)).sum()
 
-def get_autocorr(chains,plotting=True):
+def get_autocorr(chains):
     '''
     component-by-component
     '''
-    warn('untested')
+    # TODO parallelize
     chains = np.array(chains)
     results = np.zeros(chains.shape)
     for chainidx, chain in enumerate(chains):
-        for idx in chain.shape[1]:
-            temp = np.correlate(chain[:,idx],chain[:,idx],'full')
+        for idx in range(chain.shape[1]):
+            temp = chain[:,idx] - chain[:,idx].mean(0)
+            temp = np.correlate(temp,temp,'full')
             results[chainidx,:,idx] = temp[temp.shape[0]//2:]
-    if plotting:
-        raise NotImplementedError
     return results
 
-def get_statistic_convergence(chains,ncomputepoints,plotting=True):
+def get_statistic_convergence(chains,ncomputepoints):
     '''
     mean, var of components, and l2 distances to the truth
     '''
@@ -78,18 +76,13 @@ def get_statistic_convergence(chains,ncomputepoints,plotting=True):
     mean_distances = np.sqrt(((means - truemean[na,na,:])**2).sum(-1))
     var_distances = np.sqrt(((variances - truevar[na,na,:])**2).sum(-1))
 
-    ### plot
-    if plotting:
-        raise NotImplementedError
-
     return (means,variances), (truemean,truevar), (mean_distances, var_distances)
 
-def get_Rhat(chains,ncomputepoints,plotting=True):
+def get_Rhat(chains,ncomputepoints):
     '''
     see Monitoring Convergence of Iterative Simulations
+    aka Multivariate Scalre Reduction Factor
     '''
-
-    warn('untested')
     chains_all = np.array(chains)
 
     outs = np.empty(ncomputepoints)
@@ -108,19 +101,19 @@ def get_Rhat(chains,ncomputepoints,plotting=True):
         W = 1/(m*(n-1)) * np.tensordot(temp,temp,axes=([0,1],[0,1]))
 
         Vhat = (n-1)/n * W + (1+1/m) * B_over_n
-        Rhatp = np.linalg.eigvalsh(np.linalg.solve(W,Vhat)).max()
 
-        outs[chunkidx] = Rhatp
-
-    if plotting:
-        raise NotImplementedError
+        # project to subspaces on which the matrices are full rank (since they
+        # are rank-deficient due to the simplex constraint)
+        Vhatp, Wp = proj_matrix(Vhat), proj_matrix(W)
+        # compute MSPRF
+        outs[chunkidx] = scipy.linalg.eigvalsh(Vhatp,Wp).max() # same as spectral radius of W^-1 Vhat
 
     return outs
 
-def get_kldivs(chains,ncomputepoints,meshsize=100,params={'alpha':2.,'beta':30.,'data':np.array([[0,2,0],[0,0,0],[0,0,0]])},plotting=True):
+def get_kldivs(chains,ncomputepoints,meshsize=100,params={'alpha':2.,'beta':30.,'data':np.array([[0,2,0],[0,0,0],[0,0,0]])}):
     alpha, beta, data = params['alpha'], params['beta'], params['data']
     p = chains.shape[2]
-    assert p == 3
+    assert p == 3, 'this test only works on 3 dimensional examples'
 
     ### construct a 'true' density object by discrete approximate integration
     # get density evaluated on a mesh, (mesh3D, dvals)
@@ -144,10 +137,6 @@ def get_kldivs(chains,ncomputepoints,meshsize=100,params={'alpha':2.,'beta':30.,
             samples = chain[sampleidx//2:sampleidx]
             # compute kldiv against true_density
             dists[chainidx,chunkidx] = kldist_samples(samples,true_density)
-
-    ### plot
-    if plotting:
-        raise NotImplementedError
 
     return dists
 

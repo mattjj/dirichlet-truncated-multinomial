@@ -16,11 +16,24 @@ def mesh(N,edges=True):
     return tups
 
 def proj_to_2D(points):
+    # TODO special case of proj_vec, should be removed!
     return np.dot(points,np.array([[0,1],[1,-0.5],[-1,-0.5]]))
 
-def embed_2D_in_3D(points):
-    # transpose of proj_to_2D
-    return np.dot(points,np.array([[0,1],[1,-0.5],[-1,-0.5]]).T)
+def _get_projector(n):
+    foo = np.ones((n,n-1))
+    foo[np.arange(n-1),np.arange(n-1)] = -(n-1)
+    Q,R = np.linalg.qr(foo)
+    return Q
+
+def proj_vec(v):
+    v = np.array(v,ndmin=2)
+    Q = _get_projector(v.shape[1])
+    return np.dot(v,Q)
+
+def proj_matrix(mat):
+    mat = np.array(mat,ndmin=2)
+    Q = _get_projector(mat.shape[1])
+    return Q.T.dot(mat).dot(Q)
 
 def test():
     from matplotlib import pyplot as plt
