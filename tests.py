@@ -1,14 +1,23 @@
 from __future__ import division
 import numpy as np
+na = np.newaxis
 from warnings import warn
 
 from simplex import proj_to_2D, mesh
 from dirichlet import log_censored_dirichlet_density
 from sampling import density_from_samples_parallel
 from parallel import dv
+from density import kde
+
+def chunk_indices(T,npoints):
+    # TODO this is a pretty dumb implementation :D
+    return map(lambda x: x[-1], np.array_split(np.arange(T),npoints))
 
 def kldist(pvec,qvec):
-    '''between two pmfs (or KDEs evaluated over same supports and normalized)'''
+    '''
+    between two pmfs (or KDEs evaluated over same supports and normalized)
+    sorta deprecated...
+    '''
     return np.sum(np.where(np.logical_or(pvec==0,qvec==0),0.,pvec*(np.log(pvec) - np.log(qvec))))
 
 def kldist_samples(samples,q):
@@ -20,228 +29,131 @@ def kldist_samples(samples,q):
     q is a function with domain X, like from a call to density.kde
     must have \int{x \in X} q(x) \approx 1
     '''
+    warn('untested')
     N = samples.shape[0]
     return -1./N * np.log(N * q(samples)).sum()
 
-def get_rhat(mhsamples_list,auxsamples_list,ncomputepoints,params={'alpha':2.,'beta':30.,'data':np.array([[0,2,0],[0,0,0],[0,0,0]])},plotting=True):
-    alpha, beta, data = params['alpha'], params['beta'], params['data']
+def get_autocorr(chains,plotting=True):
+    '''
+    component-by-component
+    '''
+    warn('untested')
+    chains = np.array(chains)
+    results = np.zeros(chains.shape)
+    for chainidx, chain in enumerate(chains):
+        for idx in chain.shape[1]:
+            temp = np.correlate(chain[:,idx],chain[:,idx],'full')
+            results[chainidx,:,idx] = temp[temp.shape[0]//2:]
+    if plotting:
+        raise NotImplementedError
+    return results
 
-    for idx, (samples_list, name) in enumerate(zip([mhsamples_list,auxsamples_list],['mh','aux'])):
-        # TODO
-        pass
+def get_statistic_convergence(chains,ncomputepoints,plotting=True):
+    '''
+    mean, var of components, and l2 distances to the truth
+    '''
+    warn('untested')
+    chains = np.array(chains,ndmin=3)
 
+    p = chains.shape[2]
 
-def get_kldivs(mhsamples_list,auxsamples_list,ncomputepoints,params={'alpha':2.,'beta':30.,'data':np.array([[0,2,0],[0,0,0],[0,0,0]])},plotting=True):
-    warn('this is still based on old density version')
-    alpha, beta, data = params['alpha'], params['beta'], params['data']
+    ### estimate true parameters using all samples
+    truemean = chains.mean(0).mean(0) # vector of length p
+    truevar = chains.reshape((-1,p)).var(0) # vector of length p
 
-    mesh3D = mesh(100)
-    mesh2D = proj_to_2D(mesh3D)
+    ### compute statistics at the compute points
+    # preallocate outputs
+    means = np.empty((chains.shape[0],ncomputepoints,p))
+    variances = np.empty(means.shape)
 
-    # TODO not a proper density!! fix to be a density!
-    trued = log_censored_dirichlet_density(mesh3D,alpha,data=data)
-    trued = np.exp(trued - trued.max())
-    trued /= trued.sum()
+    # loop over chains
+    for chainidx, chain in enumerate(chains):
+        # loop over chunks
+        for chunkidx, sampleidx in enumerate(chunk_indices(chain.shape[0], ncomputepoints)):
+            # compute statistics up to the current time
+            means[chainidx,chunkidx] = chain[sampleidx//2:sampleidx].mean(0)
+            variances[chainidx,chunkidx] = chain[sampleidx//2:sampleidx].var(0)
 
-    mhsamples_list, auxsamples_list = map(proj_to_2D,mhsamples_list), map(proj_to_2D,auxsamples_list)
+    ### get distances to truth at the compute points
+    mean_distances = np.sqrt(((means - truemean[na,na,:])**2).sum(-1))
+    var_distances = np.sqrt(((variances - truevar[na,na,:])**2).sum(-1))
 
-    outs = []
-    for mhsamples, auxsamples in zip(mhsamples_list,auxsamples_list):
-        # TODO this inner loop could be factored into a function
+    ### plot
+    if plotting:
+        raise NotImplementedError
 
-        # preallocate stuff for the loop
-        thetimes = [timechunk[-1] for timechunk in np.split(np.arange(len(auxsamples)),ncomputepoints)]
-        approx_to_true_distances = np.zeros((len(thetimes),2))
-        true_to_approx_distances = np.zeros((len(thetimes),2))
-        auxd = np.zeros(len(mesh2D))
-        mhd = np.zeros(len(mesh2D))
+    return (means,variances), (truemean,truevar), (mean_distances, var_distances)
 
-        # for every compute time
-        for idx,(auxschunk,mhschunk) in enumerate(zip(
-                np.split(auxsamples,ncomputepoints),
-                np.split(mhsamples,ncomputepoints))):
+def get_Rhat(chains,ncomputepoints,plotting=True):
+    '''
+    see Monitoring Convergence of Iterative Simulations
+    '''
 
-            # build a density from each chunk
-            # note: both are normed, so as long as sample chunks are all same size
-            # (from using np.split) we can just sum and renormalize
-            auxd += density_from_samples_parallel(auxschunk,mesh2D,sigma=0.01,normed=True)/max(idx,1) # 1, 1, 2, 3
-            auxd /= auxd.sum()
-            mhd += density_from_samples_parallel(mhschunk,mesh2D,sigma=0.01,normed=True)/max(idx,1)
-            mhd /= mhd.sum()
+    warn('untested')
+    chains_all = np.array(chains)
 
-            # save distance measurements
-            approx_to_true_distances[idx] = (kldist(auxd,trued),kldist(mhd,trued))
-            true_to_approx_distances[idx] = (kldist(trued,auxd),kldist(trued,mhd))
+    outs = np.empty(ncomputepoints)
+    for chunkidx, sampleidx in enumerate(chunk_indices(chains.shape[1],ncomputepoints)):
+        chains = chains_all[:,sampleidx//2:sampleidx,:]
 
-            dv.purge_results('all')
+        m,n,p = chains.shape
+        # get means
+        mu_all = chains.mean(0).mean(0)
+        mu_each = chains.mean(1)
+        # B/n is between-chain covariance
+        temp = mu_each - mu_all
+        B_over_n = 1/(m-1) * temp.T.dot(temp)
+        # W is within-chain covaraince
+        temp = chains - mu_each[:,na,:]
+        W = 1/(m*(n-1)) * np.tensordot(temp,temp,axes=([0,1],[0,1]))
 
-        outs.append((approx_to_true_distances, true_to_approx_distances))
+        Vhat = (n-1)/n * W + (1+1/m) * B_over_n
+        Rhatp = np.linalg.eigvalsh(np.linalg.solve(W,Vhat)).max()
+
+        outs[chunkidx] = Rhatp
 
     if plotting:
-        from matlotlib import pyplot as plt
-        import operator
-        plt.figure()
-
-        approx_to_true, true_to_approx = zip(*outs)
-        for idx,(x,name) in enumerate(zip(zip(*outs),['KL(approx,true)','KL(true,approx)'])):
-            plt.subplot(2,1,idx+1)
-            plt.title(name)
-            means = reduce(operator.add,x)/len(x)
-            # TODO make 10th/90th instead of std
-            stds = np.sqrt(reduce(operator.add,[(out-means)**2 for out in x])/len(x))
-            plt.errorbar(np.arange(len(means[:,0])),means[:,0],yerr=stds[:,0],fmt='b-',label='aux')
-            plt.errorbar(np.arange(len(means[:,1])),means[:,1],yerr=stds[:,1],fmt='r-',label='mh')
-            plt.legend()
+        raise NotImplementedError
 
     return outs
 
-def get_autocorr(mhsamples_list,auxsamples_list,plotting=True):
-    # what is autocorr for a vector sequence? rho(corr matrix at lag i) for all
-    # i>0?
-    # maybe i'll just do it component-by-component...
-    results = []
-    for mhsamples, auxsamples in zip(mhsamples_list,auxsamples_list):
-        # TODO this inner loop could be factored into a function
-        # TODO just does zeroth component
-        mhresult = np.correlate(mhsamples[:,0],mhsamples[:,0],'full')
-        mhresult = mhresult[len(mhresult)//2:]
-
-        auxresult = np.correlate(auxsamples[:,0],auxsamples[:,0],'full')
-        auxresult = auxresult[len(auxresult)//2:]
-
-        results.append((mhresult,auxresult))
-
-    if plotting:
-        raise NotImplementedError
-
-    return results
-
-def get_statistic_convergence(mhsamples_list,auxsamples_list,ncomputepoints,params={'alpha':2.,'beta':30.,'data':np.array([[0,2,0],[0,0,0],[0,0,0]])},plotting=True):
-    # mean, var of components
-
+def get_kldivs(chains,ncomputepoints,meshsize=100,params={'alpha':2.,'beta':30.,'data':np.array([[0,2,0],[0,0,0],[0,0,0]])},plotting=True):
     alpha, beta, data = params['alpha'], params['beta'], params['data']
-    K = data.shape[0]
+    p = chains.shape[2]
+    assert p == 3
 
-    # estimate true parameters using all samples from aux
-    temp = np.concatenate(auxsamples_list,axis=0)
-    truemean = temp.mean(0) # vector of length K
-    truevar = temp.var(0) # vector of length K
+    ### construct a 'true' density object by discrete approximate integration
+    # get density evaluated on a mesh, (mesh3D, dvals)
+    mesh3D = mesh(meshsize)
+    dvals = log_censored_dirichlet_density(mesh3D, alpha, data=data)
+    dvals = np.exp(dvals - dvals.max())
+    dvals /= dvals.sum()
 
-    outs = []
-    # loop over chains, loop over chunks
-    for mhsamples, auxsamples in zip(mhsamples_list,auxsamples_list):
-        # TODO this could be factored into a single-chain function
+    # interpolate into a density function
+    true_density = kde(0.05,mesh3D,dvals)
 
-        means = np.zeros((ncomputepoints,2,K))
-        varis = np.zeros((ncomputepoints,2,K))
+    ### get kl divergence to truth at cmopute points
+    # preallocate outputs
+    dists = np.zeros((chains.shape[0],ncomputepoints))
 
-        chunksize = len(auxsamples)//ncomputepoints
-        for idx in range(ncomputepoints):
-            t = chunksize * (1+idx)
+    # loop over chains
+    for chainidx, chain in enumerate(chains):
+        # loop over chunks
+        for chunkidx, sampleidx in enumerate(chunk_indices(chain.shape[0], ncomputepoints)):
+            # get relevant samples
+            samples = chain[sampleidx//2:sampleidx]
+            # compute kldiv against true_density
+            dists[chainidx,chunkidx] = kldist_samples(samples,true_density)
 
-            means[idx,0] = auxsamples[:t].mean(0)
-            means[idx,1] = mhsamples[:t].mean(0)
-
-            varis[idx,0] = auxsamples[:t].var(0)
-            varis[idx,1] = mhsamples[:t].var(0)
-
-        outs.append((means,varis))
-
+    ### plot
     if plotting:
-        from matplotlib import pyplot as plt
         raise NotImplementedError
 
-    return outs, (truemean, truevar)
-
-def get_SRF(mhsamples_list,auxsamples_list,ncomputepoints,plotting=True):
-    pass
-
-# TODO higher dim experiment
-
-# TODO try higher dimensions (cant use kl measure, maybe how fast it finds a
-# really strong mode? or... )
-# two experiments: 2D and 30D
-# in 2D case, do kl
-# in 30D case, try:
-#  - estimatino of expectation and cov matrix: get truth by running lots, then
-#  tack convergence to that correct bidness!! ***
-#  - time to hit neighborhood of correct thing, avg across many trials
-#  - autocorrelation, avg across many trials
+    return dists
 
 # based on preliminary timeit tests, same number of samples is 10x faster with
 # aux vars, and the pic might look better
 # kldist is slightly better for same number of samples but not way. i guess
 # improvement is cpu time? that means Python hurts
 # also *easier to implement and *no tuning
-
-
-
-### OLD JUNKYARD BELOW HERE!! JUST SCRAP! USE FOR PARTS!
-
-def test_speed(nsamples,burnin,useevery,numcomputepoints,plotting=True):
-    warn('havent tried this in a while!!!')
-    # TODO downweight old samples?? mh needs some burnin
-    import sys
-    alpha = 2.
-    beta = 30.
-    data = np.zeros((3,3))
-    data[0,1] += 2
-
-    mesh3D = mesh(100)
-    mesh2D = proj_to_2D(mesh3D)
-
-    # use direct riemann integration to get true density
-    trued = log_censored_dirichlet_density(mesh3D,alpha,data=data)
-    trued = np.exp(trued - trued.max())
-    trued /= trued.sum()
-
-    # get all the samples
-    auxsamples = proj_to_2D(generate_pi_samples_withauxvars(alpha,nsamples,data)[burnin::useevery])
-    mhsamples = proj_to_2D(generate_pi_samples_mh(alpha,nsamples,data,beta)[burnin::useevery])
-
-    # preallocate stuff for the loop
-    thetimes = [timechunk[-1]*useevery for timechunk in np.split(np.arange(len(auxsamples)),numcomputepoints)]
-    approx_to_true_distances = np.zeros((len(thetimes),2))
-    true_to_approx_distances = np.zeros((len(thetimes),2))
-    auxd = np.zeros(len(mesh2D))
-    mhd = np.zeros(len(mesh2D))
-
-    # for every compute time
-    print len(thetimes)
-    for idx,(auxschunk,mhschunk) in enumerate(zip(
-            np.split(auxsamples,numcomputepoints),
-            np.split(mhsamples,numcomputepoints))):
-
-        # build a density from each chunk
-        # note: both are normed, so as long as sample chunks are all same size
-        # (from using np.split) we can just sum and renormalize
-        auxd += density_from_samples_parallel(auxschunk,mesh2D,sigma=0.1,normed=True)
-        auxd /= auxd.sum()
-        mhd += density_from_samples_parallel(mhschunk,mesh2D,sigma=0.1,normed=True)
-        mhd /= mhd.sum()
-
-        # save distance measurements
-        approx_to_true_distances[idx] = (kldist(auxd,trued),kldist(mhd,trued))
-        true_to_approx_distances[idx] = (kldist(trued,auxd),kldist(trued,mhd))
-
-        sys.stdout.write('.'); sys.stdout.flush()
-
-    if plotting:
-        from matplotlib import pyplot as plt
-        plt.figure()
-
-        plt.subplot(2,1,1)
-        plt.title('KL(approx,true)')
-        plt.plot(thetimes,approx_to_true_distances[:,0],'b-',label='aux')
-        plt.plot(thetimes,approx_to_true_distances[:,1],'r-',label='mh')
-        plt.legend()
-
-        plt.subplot(2,1,2)
-        plt.title('KL(true,approx)')
-        plt.plot(thetimes,true_to_approx_distances[:,0],'b-',label='aux')
-        plt.plot(thetimes,true_to_approx_distances[:,1],'r-',label='mh')
-        plt.legend()
-
-    return approx_to_true_distances, true_to_approx_distances
-
 
