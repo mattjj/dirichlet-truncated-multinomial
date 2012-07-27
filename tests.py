@@ -7,6 +7,7 @@ import scipy.linalg
 from simplex import mesh, proj_matrix
 from dirichlet import log_censored_dirichlet_density
 from density import kde
+import parallel
 
 def chunk_indices(T,npoints):
     # TODO this is a pretty dumb implementation :D
@@ -15,7 +16,7 @@ def chunk_indices(T,npoints):
 def kldist(pvec,qvec):
     '''
     between two pmfs (or KDEs evaluated over same supports and normalized)
-    sorta deprecated...
+    sorta DEPRECATED...
     '''
     return np.sum(np.where(np.logical_or(pvec==0,qvec==0),0.,pvec*(np.log(pvec) - np.log(qvec))))
 
@@ -36,7 +37,6 @@ def get_autocorr(chains):
     '''
     component-by-component
     '''
-    # TODO parallelize
     chains = np.array(chains)
     results = np.zeros(chains.shape)
     for chainidx, chain in enumerate(chains):
@@ -50,7 +50,6 @@ def get_statistic_convergence(chains,ncomputepoints):
     '''
     mean, var of components, and l2 distances to the truth
     '''
-    warn('untested')
     chains = np.array(chains,ndmin=3)
 
     p = chains.shape[2]

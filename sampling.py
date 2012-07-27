@@ -16,6 +16,10 @@ def generate_pi_samples_withauxvars(alpha,n_samples,data):
     starttime = time.time()
     sample_counts = data.sum(1)
 
+    # only generate aux vars for the ones we need
+    auxvar_indices = np.arange(len(sample_counts))[sample_counts > 0]
+    sample_counts = sample_counts[sample_counts > 0]
+
     # randomly initialize pi
     pi = np.random.dirichlet(alpha * np.ones(K))
     # set up aux count array
@@ -24,13 +28,13 @@ def generate_pi_samples_withauxvars(alpha,n_samples,data):
     samples = np.zeros((n_samples,K))
     for ii in range(n_samples):
         ### sample aux vars given pi
-        for idx, sample_count in enumerate(sample_counts):
+        for idx, sample_count in zip(auxvar_indices, sample_counts):
             counts[idx,idx] = np.random.geometric(1.-pi[idx],size=sample_count).sum() - sample_count # support is {1,2,...}, but we want {0,1,...}
         ### sample pi given aux vars
         pi = np.random.dirichlet(alpha * np.ones(K) + counts.sum(0))
         samples[ii] = pi
 
-    print 'done drawing samples in %0.2f seconds' % (time.time() - starttime)
+    # print 'done drawing samples in %0.2f seconds' % (time.time() - starttime)
 
     return samples
 
@@ -51,9 +55,11 @@ def generate_pi_samples_mh(alpha,n_samples,data,beta):
     # proposals -= np.dot(proposals,np.ones(K)/K)[:,na]
 
     # loop mh proposals
+    n_total = 0
     while len(samples) < n_samples:
         ### make a proposal
         pi_prime = np.random.dirichlet(beta * pi)
+        n_total += 1
         ### get proposal probability and sample it
         new_val = log_censored_dirichlet_density(pi_prime,alpha=alpha,data=data)
         if new_val > -np.inf:
@@ -67,8 +73,8 @@ def generate_pi_samples_mh(alpha,n_samples,data,beta):
 
             samples.append(pi)
 
-    print 'done drawing samples in %0.2f seconds' % (time.time() - starttime)
-    print '%d valid proposals, %d accepted, acceptance ratio %0.4f' % (n_samples, n_accepts, n_accepts / n_samples)
+    # print 'done drawing samples in %0.2f seconds' % (time.time() - starttime)
+    # print '%d total proposals, %d valid proposals, %d accepted, valid acceptance ratio %0.4f' % (n_total,n_samples, n_accepts, n_accepts / n_samples)
 
     return samples
 

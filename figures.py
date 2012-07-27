@@ -4,11 +4,11 @@ from matplotlib import pyplot as plt
 import numpy as np
 na = np.newaxis
 
-import simplex, dirichlet
+import simplex, dirichlet, sampling, tests
 
 allfigfuncs = []
 SAVING = True
-plt.interactive(False)
+# plt.interactive(False)
 
 #################################
 #  Figure-Generating Functions  #
@@ -58,6 +58,72 @@ def prior_posterior_2D(meshsize=250,alpha=2.,data=np.array([[0,2,0],[0,0,0],[0,0
     save('./figures/dirichlet_censored_posterior_2D.pdf')
 
 allfigfuncs.append(prior_posterior_2D)
+
+def Rhatp(nsamples=1000,ncomputepoints=25,nruns=50,ndims=10):
+    # get samples
+    data = np.zeros((ndims,ndims))
+    data[np.roll(np.arange(ndims//2),1),np.arange(ndims//2)] = 10 # fill half the dims with data
+    alpha = 2. # Dirichlet prior hyperparameter
+    beta = 160. # MH proposal distribution parameter, set so acceptance rate is about 0.24 with ndims=10
+    mhsamples, auxsamples = map(np.array,
+            sampling.load_or_run_samples(nruns,nsamples,alpha,beta,data))
+
+    # get Rhatps
+    aux_R = tests.get_Rhat(auxsamples,ncomputepoints=ncomputepoints)
+    mh_R = tests.get_Rhat(mhsamples,ncomputepoints=ncomputepoints)
+
+    ### plot without time scaling
+    plt.figure()
+
+    # plt.subplot(2,1,1)
+    plt.plot(tests.chunk_indices(nsamples,ncomputepoints),aux_R,'bx-',label='Aux. Var. Sampler')
+    plt.plot(tests.chunk_indices(nsamples,ncomputepoints),mh_R,'gx-',label='MH Sampler')
+    plt.ylim(0,1.1*mh_R.max())
+    plt.xlim(0,1000)
+    plt.xlabel('sample index')
+    plt.legend()
+    plt.title('MH and Aux. Var. Samplers MSPRF vs Sample Indices')
+
+    # plt.subplot(2,1,2)
+    # plt.plot(tests.chunk_indices(nsamples,ncomputepoints),aux_R,'bx-')
+    # plt.ylim(0,1.1*aux_R.max())
+    # plt.xlim(0,closeindex)
+    # plt.xlabel('sample index')
+    # plt.title('Aux. Var. Sampler MSPRF vs Sample Indices')
+
+    save('./figures/MSPRF_sampleindexscaling_%dD.pdf' % ndims)
+
+    ### plot with time scaling
+    plt.figure()
+
+    # compute time per sample
+    import timing
+    aux_timing = timing.get_auxvar_timing(data=data,alpha=alpha)
+    mh_timing = timing.get_mh_timing(data=data,beta=beta,alpha=alpha)
+
+    plt.plot(np.array(tests.chunk_indices(nsamples,ncomputepoints))*aux_timing,
+            aux_R,'bx-',label='Aux. Var. Sampler')
+    plt.plot(np.array(tests.chunk_indices(nsamples,ncomputepoints))*mh_timing,
+            mh_R,'gx-',label='MH Sampler')
+    plt.ylim(0,1.1*mh_R.max())
+    plt.xlim(0,mh_timing*nsamples)
+    plt.xlabel('seconds')
+    plt.legend()
+    plt.title('MH and Aux. Var. Sampler MSPRF vs Computation Time')
+
+    save('./figures/MSPRF_timescaling_%dD.pdf' % ndims)
+
+allfigfuncs.append(Rhatp)
+
+def autocorrelation():
+    raise NotImplementedError
+
+allfigfuncs.append(autocorrelation)
+
+def statistic_convergence():
+    raise NotImplementedError
+
+allfigfuncs.append(statistic_convergence)
 
 ###############
 #  Utilities  #
