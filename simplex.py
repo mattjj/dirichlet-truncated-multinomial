@@ -16,7 +16,9 @@ def mesh(N,edges=True):
     return tups
 
 def proj_to_2D(points):
-    # TODO special case of proj_vec, should be removed!
+    # this special case is useful; it's slightly numerically nicer and so it
+    # plays better with delaunay triangulation algorithms, which I use for 2D
+    # plotting
     return np.dot(points,np.array([[0,1],[1,-0.5],[-1,-0.5]]))
 
 def _get_projector(n):
@@ -31,7 +33,6 @@ def proj_vec(v):
     return np.dot(v,Q)
 
 def proj_matrix(mat):
-    mat = np.array(mat,ndmin=2)
     Q = _get_projector(mat.shape[1])
     return Q.T.dot(mat).dot(Q)
 
