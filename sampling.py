@@ -3,10 +3,9 @@ import numpy as np
 na = np.newaxis
 import time
 from warnings import warn
-import cPickle
+import cPickle, os
 
 from dirichlet import log_dirichlet_density, log_censored_dirichlet_density
-from simplex import mesh, proj_to_2D
 import parallel
 
 ### SAMPLING
@@ -73,10 +72,8 @@ def generate_pi_samples_mh(alpha,n_samples,data,beta):
 
     return samples
 
-def get_samples_parallel(nruns,nsamples,params={'alpha':2.,'beta':30.,'data':np.array([[0,2,0],[0,0,0],[0,0,0]])}):
+def get_samples_parallel(nruns,nsamples,alpha,beta,data):
     # data shape sets dimensionality
-    alpha, beta, data = params['alpha'], params['beta'], params['data']
-
     mhsamples_list  = parallel.dv.map_sync(lambda tup: generate_pi_samples_mh(tup[0],tup[1],tup[2],tup[3]), [(alpha,nsamples,data,beta)]*nruns)
     auxsamples_list = parallel.dv.map_sync(lambda tup: generate_pi_samples_withauxvars(tup[0],tup[1],tup[2]), [(alpha,nsamples,data)]*nruns)
 
@@ -84,20 +81,21 @@ def get_samples_parallel(nruns,nsamples,params={'alpha':2.,'beta':30.,'data':np.
 
     return mhsamples_list, auxsamples_list
 
-def run_and_save_samples(*args,**kwargs):
-    if 'filename' in kwargs:
-        filename = kwargs['filename']
-        del kwargs['filename']
-    else:
-        filename = 'samples'
+def load_or_run_samples(nruns,nsamples,alpha,beta,data):
+    filename = '%d.%d.%d.samples' % (nruns,nsamples,data.shape[0])
 
-    mhsamples_list, auxsamples_list = get_samples_parallel(*args,**kwargs)
+    if os.path.isfile(filename):
+        with open(filename,'r') as infile:
+            alphaloaded, betaloaded, dataloaded, mhsamples_list, auxsamples_list = cPickle.load(infile)
+
+        if alphaloaded == alpha and betaloaded == beta and (dataloaded == data).all():
+            return mhsamples_list, auxsamples_list
+        else:
+            print 'warning: existing file %s has different parameters\nresampling and clobbering...' % filename
+
+    mhsamples_list, auxsamples_list = get_samples_parallel(nruns,nsamples,alpha,beta,data)
+
     with open(filename,'w') as outfile:
-        cPickle.dump((mhsamples_list, auxsamples_list), outfile, protocol=2)
+        cPickle.dump((alpha,beta,data,mhsamples_list,auxsamples_list), outfile, protocol=2)
+
     return mhsamples_list, auxsamples_list
-
-def load_samples(filename='samples'):
-    with open(filename,'r') as infile:
-        samples = cPickle.load(infile)
-    return samples
-
