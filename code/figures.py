@@ -42,19 +42,19 @@ def prior_posterior_2D(meshsize=250,alpha=2.,data=np.array([[0,2,0],[0,0,0],[0,0
     # resulting in large files and slow draw times
     # plt.tripcolor(mesh2D[:,0],mesh2D[:,1],priorvals) # exact triangles, no blurring
     plt.axis('off')
-    save('./figures/dirichlet_prior_2D.pdf')
+    save('../writeup/figures/dirichlet_prior_2D.pdf')
 
     plt.figure(figsize=(8,8))
     plt.imshow(griddata((mesh2D[:,0],mesh2D[:,1]),posteriorvals_uncensored,(xi[na,:],yi[:,na]),method='cubic'))
     # plt.tripcolor(mesh2D[:,0],mesh2D[:,1],posteriorvals_uncensored)
     plt.axis('off')
-    save('./figures/dirichlet_uncensored_posterior_2D.pdf')
+    save('../writeup/figures/dirichlet_uncensored_posterior_2D.pdf')
 
     plt.figure(figsize=(8,8))
     plt.imshow(griddata((mesh2D[:,0],mesh2D[:,1]),posteriorvals_censored,(xi[na,:],yi[:,na]),method='cubic'))
     # plt.tripcolor(mesh2D[:,0],mesh2D[:,1],posteriorvals_censored)
     plt.axis('off')
-    save('./figures/dirichlet_censored_posterior_2D.pdf')
+    save('../writeup/figures/dirichlet_censored_posterior_2D.pdf')
 
 allfigfuncs.append(prior_posterior_2D)
 
@@ -81,7 +81,7 @@ def aux_posterior_2D(meshsize=250,alpha=2.,data=np.array([[0,2,0],[0,0,0],[0,0,0
     plt.imshow(griddata((mesh2D[:,0],mesh2D[:,1]),aux_kde_vals,(xi[na,:],yi[:,na]),method='cubic'))
     plt.axis('off')
 
-    save('./figures/dirichlet_censored_auxvar_posterior_2D.pdf')
+    save('../writeup/figures/dirichlet_censored_auxvar_posterior_2D.pdf')
 
 allfigfuncs.append(aux_posterior_2D)
 
@@ -117,7 +117,7 @@ def Rhatp(nsamples=1000,ncomputepoints=25,nruns=50,ndims=10):
     # plt.xlabel('sample index')
     # plt.title('Aux. Var. Sampler MSPRF vs Sample Indices')
 
-    save('./figures/MSPRF_sampleindexscaling_%dD.pdf' % ndims)
+    save('../writeup/figures/MSPRF_sampleindexscaling_%dD.pdf' % ndims)
 
     ### plot with time scaling
     plt.figure()
@@ -136,7 +136,7 @@ def Rhatp(nsamples=1000,ncomputepoints=25,nruns=50,ndims=10):
     plt.legend()
     plt.title('MH and Aux. Var. Sampler MSPRF vs Computation Time')
 
-    save('./figures/MSPRF_timescaling_%dD.pdf' % ndims)
+    save('../writeup/figures/MSPRF_timescaling_%dD.pdf' % ndims)
 
 allfigfuncs.append(Rhatp)
 
@@ -167,7 +167,7 @@ def autocorrelation(nsamples=1000,nruns=50,ndims=10):
         plt.xlim(0,np.where(mh_corrs.mean(0)[:,component] < 0.01)[0][0])
         plt.title('%s Component Autocorrelations' % ordinalname.capitalize())
 
-        save('./figures/autocorrelations_%dD_%s.pdf' % (ndims,ordinalname))
+        save('../writeup/figures/autocorrelations_%dD_%s.pdf' % (ndims,ordinalname))
 
 allfigfuncs.append(autocorrelation)
 
@@ -207,7 +207,7 @@ def statistic_convergence(nsamples=5000,ncomputepoints=50,nruns=50,ndims=10):
         plt.xlabel('sample index')
         plt.title('%s Convergence' % statisticname.capitalize())
 
-        save('./figures/statisticconvergence_%dD_%s.pdf' % (ndims,statisticname))
+        save('../writeup/figures/statisticconvergence_%dD_%s.pdf' % (ndims,statisticname))
 
 
         # time scaling
@@ -226,7 +226,7 @@ def statistic_convergence(nsamples=5000,ncomputepoints=50,nruns=50,ndims=10):
         plt.xlabel('seconds')
         plt.title('%s Convergence' % statisticname.capitalize())
 
-        save('./figures/statisticconvergence_timescaling_%dD_%s.pdf' % (ndims,statisticname))
+        save('../writeup/figures/statisticconvergence_timescaling_%dD_%s.pdf' % (ndims,statisticname))
 
 allfigfuncs.append(statistic_convergence)
 
