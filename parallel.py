@@ -1,5 +1,3 @@
-from IPython.parallel import Client
-
 class dummy_directview(object):
     map_sync = map
     __len__ = lambda self: 1
@@ -8,5 +6,6 @@ dv = dummy_directview()
 
 def go_parallel():
     global dv, c
+    from IPython.parallel import Client
     c = Client()
     dv = c[:]
