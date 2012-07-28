@@ -115,8 +115,33 @@ def Rhatp(nsamples=1000,ncomputepoints=25,nruns=50,ndims=10):
 
 allfigfuncs.append(Rhatp)
 
-def autocorrelation():
-    raise NotImplementedError
+def autocorrelation(nsamples=1000,nruns=50,ndims=10):
+    # get samples
+    data = np.zeros((ndims,ndims))
+    data[np.roll(np.arange(ndims//2),1),np.arange(ndims//2)] = 10 # fill half the dims with data
+    alpha = 2. # Dirichlet prior hyperparameter
+    beta = 160. # MH proposal distribution parameter, set so acceptance rate is about 0.24 with ndims=10
+    mhsamples, auxsamples = map(np.array,
+            sampling.load_or_run_samples(nruns,nsamples,alpha,beta,data))
+
+    # compute autocorrelations
+    aux_corrs = tests.get_autocorr(auxsamples)
+    mh_corrs = tests.get_autocorr(mhsamples)
+
+    for component, ordinalname in zip([0,1],['first','second']):
+        plt.figure()
+
+        for corrs, samplername, color in zip([aux_corrs, mh_corrs],['Aux. Var.','MH'],['b','g']):
+            plt.plot(corrs.mean(0)[:,component],color+'-',label='%s Sampler' % samplername)
+            plt.plot(scoreatpercentile(corrs[...,component],per=10,axis=0),color+'--')
+            plt.plot(scoreatpercentile(corrs[...,component],per=90,axis=0),color+'--')
+
+        plt.legend()
+        plt.xlabel('lag')
+        plt.xlim(0,np.where(mh_corrs.mean(0)[:,component] < 0.01)[0][0])
+        plt.title('%s Component Autocorrelations' % ordinalname.capitalize())
+
+        save('./figures/autocorrelations_%dD_%s.pdf' % (ndims,ordinalname))
 
 allfigfuncs.append(autocorrelation)
 
@@ -137,6 +162,23 @@ def save(pathstr):
             print 'saved %s' % filepath
             return
     print 'not saved'
+
+def scoreatpercentile(data,per,axis):
+    '''
+    like the function in scipy.stats but with an axis argument, and works on
+    arrays.
+    '''
+    a = np.sort(data,axis=axis)
+    idx = per/100. * data.shape[axis] # why does scipy subtract 1?
+
+    if (idx % 1 == 0):
+        return a[[slice(None) if ii != axis else idx for ii in range(a.ndim)]]
+    else:
+        lowerweight = 1-(idx % 1)
+        upperweight = (idx % 1)
+        idx = int(np.floor(idx))
+        return lowerweight * a[[slice(None) if ii != axis else idx for ii in range(a.ndim)]] \
+                + upperweight * a[[slice(None) if ii != axis else idx+1 for ii in range(a.ndim)]]
 
 ##########################
 #  Generate All Figures  #
