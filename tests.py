@@ -10,8 +10,7 @@ from density import kde
 import parallel
 
 def chunk_indices(T,npoints):
-    # TODO this is a pretty dumb implementation :D
-    return map(lambda x: x[-1], np.array_split(np.arange(T),npoints))
+    return map(lambda x: x[-1]+1, np.array_split(np.arange(T),npoints))
 
 def kldist(pvec,qvec):
     '''

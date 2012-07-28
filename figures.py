@@ -1,10 +1,10 @@
 from __future__ import division
-import os
 from matplotlib import pyplot as plt
 import numpy as np
 na = np.newaxis
+from scipy.interpolate import griddata
 
-import simplex, dirichlet, sampling, tests
+import simplex, dirichlet, sampling, tests, density, timing
 
 allfigfuncs = []
 SAVING = True
@@ -15,7 +15,6 @@ SAVING = True
 #################################
 
 def prior_posterior_2D(meshsize=250,alpha=2.,data=np.array([[0,2,0],[0,0,0],[0,0,0]])):
-    from scipy.interpolate import griddata
     assert data.shape == (3,3)
 
     mesh3D = simplex.mesh(meshsize)
@@ -59,6 +58,33 @@ def prior_posterior_2D(meshsize=250,alpha=2.,data=np.array([[0,2,0],[0,0,0],[0,0
 
 allfigfuncs.append(prior_posterior_2D)
 
+def aux_posterior_2D(meshsize=250,alpha=2.,data=np.array([[0,2,0],[0,0,0],[0,0,0]])):
+    assert data.shape == (3,3)
+
+    mesh3D = simplex.mesh(meshsize)
+    mesh2D = simplex.proj_to_2D(mesh3D) # use specialized b/c it plays nicer with triangulation algorithm
+
+    # get samples
+    auxsamples = sampling.generate_pi_samples_withauxvars(alpha,10000,data)
+
+    # evaluate a kde based on the samples
+    aux_kde = density.kde(0.005,auxsamples[len(auxsamples)//20:])
+    aux_kde_vals = aux_kde(mesh3D)
+
+    ### plot
+
+    # used for grid interpolation
+    xi = np.linspace(mesh2D[:,0].min(), mesh2D[:,0].max(), 2000, endpoint=True)
+    yi = np.linspace(mesh2D[:,1].min(), mesh2D[:,1].max(), 2000, endpoint=True)
+
+    plt.figure(figsize=(8,8))
+    plt.imshow(griddata((mesh2D[:,0],mesh2D[:,1]),aux_kde_vals,(xi[na,:],yi[:,na]),method='cubic'))
+    plt.axis('off')
+
+    save('./figures/dirichlet_censored_auxvar_posterior_2D.pdf')
+
+allfigfuncs.append(aux_posterior_2D)
+
 def Rhatp(nsamples=1000,ncomputepoints=25,nruns=50,ndims=10):
     # get samples
     data = np.zeros((ndims,ndims))
@@ -97,7 +123,6 @@ def Rhatp(nsamples=1000,ncomputepoints=25,nruns=50,ndims=10):
     plt.figure()
 
     # compute time per sample
-    import timing
     aux_timing = timing.get_auxvar_timing(data=data,alpha=alpha)
     mh_timing = timing.get_mh_timing(data=data,beta=beta,alpha=alpha)
 
@@ -162,7 +187,6 @@ def statistic_convergence(nsamples=5000,ncomputepoints=50,nruns=50,ndims=10):
             tests.get_statistic_convergence(auxsamples,ncomputepoints)
 
     # get time scaling
-    import timing
     aux_timing = timing.get_auxvar_timing(data=data,alpha=alpha)
     mh_timing = timing.get_mh_timing(data=data,beta=beta,alpha=alpha)
 
@@ -206,12 +230,11 @@ def statistic_convergence(nsamples=5000,ncomputepoints=50,nruns=50,ndims=10):
 
 allfigfuncs.append(statistic_convergence)
 
-# TODO correctness via KDE plot?
-
 ###############
 #  Utilities  #
 ###############
 
+import os
 def save(pathstr):
     filepath = os.path.abspath(pathstr)
     if SAVING:

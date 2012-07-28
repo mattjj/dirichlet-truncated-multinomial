@@ -78,14 +78,16 @@ def generate_pi_samples_mh(alpha,n_samples,data,beta):
 
     return samples
 
-def get_samples_parallel(nruns,nsamples,alpha,beta,data):
-    # data shape sets dimensionality
-    mhsamples_list  = parallel.dv.map_sync(lambda tup: generate_pi_samples_mh(tup[0],tup[1],tup[2],tup[3]), [(alpha,nsamples,data,beta)]*nruns)
-    auxsamples_list = parallel.dv.map_sync(lambda tup: generate_pi_samples_withauxvars(tup[0],tup[1],tup[2]), [(alpha,nsamples,data)]*nruns)
+def get_samples_parallel(sampler,nruns,*args):
+    # the line below doesn't work because ipython parallel can't pickle closures :(
+    # samples_list  = parallel.dv.map_sync(lambda tup: sampler(*tup), [args]*nruns)
+    # so I wrote this weird thing instead...
+    def applier(tup):
+        return apply(tup[0],tup[1])
+    samples_list = parallel.dv.map_sync(applier, zip([sampler]*nruns,[args]*nruns))
 
     parallel.dv.purge_results('all')
-
-    return mhsamples_list, auxsamples_list
+    return samples_list
 
 def load_or_run_samples(nruns,nsamples,alpha,beta,data):
     filename = './samples/%d.%d.%d.samples' % (nruns,nsamples,data.shape[0])
@@ -99,7 +101,8 @@ def load_or_run_samples(nruns,nsamples,alpha,beta,data):
         else:
             print 'warning: existing file %s has different parameters\nresampling and clobbering...' % filename
 
-    mhsamples_list, auxsamples_list = get_samples_parallel(nruns,nsamples,alpha,beta,data)
+    mhsamples_list = get_samples_parallel(generate_pi_samples_mh,nruns,alpha,nsamples,data,beta)
+    auxsamples_list = get_samples_parallel(generate_pi_samples_withauxvars,nruns,alpha,nsamples,data)
 
     with open(filename,'w') as outfile:
         cPickle.dump((alpha,beta,data,mhsamples_list,auxsamples_list), outfile, protocol=2)
