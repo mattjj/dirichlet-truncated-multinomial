@@ -137,10 +137,3 @@ def get_kldivs(chains,ncomputepoints,meshsize=100,params={'alpha':2.,'beta':30.,
             dists[chainidx,chunkidx] = kldist_samples(samples,true_density)
 
     return dists
-
-# based on preliminary timeit tests, same number of samples is 10x faster with
-# aux vars, and the pic might look better
-# kldist is slightly better for same number of samples but not way. i guess
-# improvement is cpu time? that means Python hurts
-# also *easier to implement and *no tuning
-
