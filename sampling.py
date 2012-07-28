@@ -62,7 +62,7 @@ def generate_pi_samples_mh(alpha,n_samples,data,beta):
         n_total += 1
         ### get proposal probability and sample it
         new_val = log_censored_dirichlet_density(pi_prime,alpha=alpha,data=data)
-        if new_val > -np.inf:
+        if new_val > -np.inf: # in our tests, this is always true
             a = min(1.,np.exp(new_val - current_val
                 + log_dirichlet_density(pi,alpha=beta*pi_prime)
                   - log_dirichlet_density(pi_prime,alpha=beta*pi)))
