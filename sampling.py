@@ -39,7 +39,7 @@ def generate_pi_samples_withauxvars(alpha,n_samples,data):
     return samples
 
 def generate_pi_samples_mh(alpha,n_samples,data,beta):
-    starttime = time.time()
+    # starttime = time.time()
     K = data.shape[0]
 
     # randomly initialize pi
@@ -88,7 +88,7 @@ def get_samples_parallel(nruns,nsamples,alpha,beta,data):
     return mhsamples_list, auxsamples_list
 
 def load_or_run_samples(nruns,nsamples,alpha,beta,data):
-    filename = '%d.%d.%d.samples' % (nruns,nsamples,data.shape[0])
+    filename = './samples/%d.%d.%d.samples' % (nruns,nsamples,data.shape[0])
 
     if os.path.isfile(filename):
         with open(filename,'r') as infile:

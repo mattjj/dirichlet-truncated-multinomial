@@ -169,7 +169,7 @@ def scoreatpercentile(data,per,axis):
     arrays.
     '''
     a = np.sort(data,axis=axis)
-    idx = per/100. * data.shape[axis] # why does scipy subtract 1?
+    idx = per/100. * (data.shape[axis]-1)
 
     if (idx % 1 == 0):
         return a[[slice(None) if ii != axis else idx for ii in range(a.ndim)]]
