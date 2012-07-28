@@ -13,7 +13,7 @@ import parallel
 def generate_pi_samples_withauxvars(alpha,n_samples,data):
     K = data.shape[0]
 
-    starttime = time.time()
+    # starttime = time.time()
     sample_counts = data.sum(1)
 
     # only generate aux vars for the ones we need
@@ -49,10 +49,6 @@ def generate_pi_samples_mh(alpha,n_samples,data,beta):
     samples = []
 
     n_accepts = 0
-
-    # for efficiency, gaussian proposals outside of loop
-    # proposals = sigma * np.random.normal(size=(n_samples,K))
-    # proposals -= np.dot(proposals,np.ones(K)/K)[:,na]
 
     # loop mh proposals
     n_total = 0
