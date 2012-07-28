@@ -80,7 +80,7 @@ def get_statistic_convergence(chains,ncomputepoints):
 def get_Rhat(chains,ncomputepoints):
     '''
     see Monitoring Convergence of Iterative Simulations
-    aka Multivariate Scalre Reduction Factor
+    aka Multivariate Scale Reduction Factor
     '''
     chains_all = np.array(chains)
 

@@ -128,6 +128,7 @@ def autocorrelation(nsamples=1000,nruns=50,ndims=10):
     aux_corrs = tests.get_autocorr(auxsamples)
     mh_corrs = tests.get_autocorr(mhsamples)
 
+    # plot
     for component, ordinalname in zip([0,1],['first','second']):
         plt.figure()
 
@@ -145,10 +146,67 @@ def autocorrelation(nsamples=1000,nruns=50,ndims=10):
 
 allfigfuncs.append(autocorrelation)
 
-def statistic_convergence():
-    raise NotImplementedError
+def statistic_convergence(nsamples=5000,ncomputepoints=50,nruns=50,ndims=10):
+    # get samples
+    data = np.zeros((ndims,ndims))
+    data[np.roll(np.arange(ndims//2),1),np.arange(ndims//2)] = 10 # fill half the dims with data
+    alpha = 2. # Dirichlet prior hyperparameter
+    beta = 160. # MH proposal distribution parameter, set so acceptance rate is about 0.24 with ndims=10
+    mhsamples, auxsamples = map(np.array,
+            sampling.load_or_run_samples(nruns,nsamples,alpha,beta,data))
+
+    # compute statistics
+    (mhmeans, mhvars), (truemean, truevar), (mh_mean_ds, mh_var_ds) = \
+            tests.get_statistic_convergence(mhsamples,ncomputepoints)
+    (auxmeans, auxvars), (truemean, truevar), (aux_mean_ds, aux_var_ds) = \
+            tests.get_statistic_convergence(auxsamples,ncomputepoints)
+
+    # get time scaling
+    import timing
+    aux_timing = timing.get_auxvar_timing(data=data,alpha=alpha)
+    mh_timing = timing.get_mh_timing(data=data,beta=beta,alpha=alpha)
+
+    # plot
+    for samplerds, statisticname in zip(((aux_mean_ds,mh_mean_ds),(aux_var_ds,mh_var_ds)),('mean','variance')):
+        # sample index scaling
+        plt.figure()
+
+        for ds, samplername, color in zip(samplerds, ['Aux. Var.','MH'],['b','g']):
+            plt.plot(np.array(tests.chunk_indices(nsamples,ncomputepoints)),
+                    ds.mean(0),color+'-',label='%s Sampler' % samplername)
+            plt.plot(np.array(tests.chunk_indices(nsamples,ncomputepoints)),
+                    scoreatpercentile(ds,per=10,axis=0),color+'--')
+            plt.plot(np.array(tests.chunk_indices(nsamples,ncomputepoints)),
+                    scoreatpercentile(ds,per=90,axis=0),color+'--')
+
+        plt.legend()
+        plt.xlabel('sample index')
+        plt.title('%s Convergence' % statisticname.capitalize())
+
+        save('./figures/statisticconvergence_%dD_%s.pdf' % (ndims,statisticname))
+
+
+        # time scaling
+        plt.figure()
+
+        for ds, samplername, color, timescaling in zip(samplerds, ['Aux. Var.','MH'],['b','g'],
+                (aux_timing,mh_timing)):
+            plt.plot(np.array(tests.chunk_indices(nsamples,ncomputepoints))*timescaling,
+                    ds.mean(0),color+'-',label='%s Sampler' % samplername)
+            plt.plot(np.array(tests.chunk_indices(nsamples,ncomputepoints))*timescaling,
+                    scoreatpercentile(ds,per=10,axis=0),color+'--')
+            plt.plot(np.array(tests.chunk_indices(nsamples,ncomputepoints))*timescaling,
+                    scoreatpercentile(ds,per=90,axis=0),color+'--')
+
+        plt.legend()
+        plt.xlabel('seconds')
+        plt.title('%s Convergence' % statisticname.capitalize())
+
+        save('./figures/statisticconvergence_timescaling_%dD_%s.pdf' % (ndims,statisticname))
 
 allfigfuncs.append(statistic_convergence)
+
+# TODO correctness via KDE plot?
 
 ###############
 #  Utilities  #
