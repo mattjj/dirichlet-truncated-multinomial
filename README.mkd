@@ -4,6 +4,5 @@ To parallelize, start ipcluster engines and then run
 
 ```python
 import parallel
-from IPython.parallel import Client
-parallel.dv = Client()[:]
+parallel.go_parallel()
 ```
