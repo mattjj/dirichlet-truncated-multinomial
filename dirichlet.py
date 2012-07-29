@@ -25,9 +25,9 @@ def log_censored_dirichlet_density(x,alpha,data=None):
     '''
     UNNORMALIZED symmetric censored dirichlet density
 
-    x is an Nx3 set of query points on which to evaluate the density
+    x is an NxP set of query points on which to evaluate the P-dimensional density
 
-    data is an optional 3x3 matrix where the ijth entry is the number of times
+    data is an optional PxP matrix where the ijth entry is the number of times
     face j came up during the i-censored rounds. therefore np.all(np.diag(data)==0)
     '''
     retvals, goodindices, badindices, x, alpha = _dirichlet_support_check(x,alpha)
