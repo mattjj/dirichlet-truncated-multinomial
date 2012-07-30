@@ -181,10 +181,13 @@ def statistic_convergence(nsamples=5000,ncomputepoints=50,nruns=50,ndims=10):
             sampling.load_or_run_samples(nruns,nsamples,alpha,beta,data))
 
     # compute statistics
-    (mhmeans, mhvars), (truemean, truevar), (mh_mean_ds, mh_var_ds) = \
+    (mhmeans, mhvars), (mh_truemean, mh_truevar), (mh_mean_ds, mh_var_ds) = \
             tests.get_statistic_convergence(mhsamples,ncomputepoints)
-    (auxmeans, auxvars), (truemean, truevar), (aux_mean_ds, aux_var_ds) = \
+    (auxmeans, auxvars), (aux_truemean, aux_truevar), (aux_mean_ds, aux_var_ds) = \
             tests.get_statistic_convergence(auxsamples,ncomputepoints)
+
+    # check that the estimated "true" statistics agree
+    assert np.allclose(mh_truemean, aux_truemean) and np.allclose(mh_truevar, aux_truevar)
 
     # get time scaling
     aux_timing = timing.get_auxvar_timing(data=data,alpha=alpha)
