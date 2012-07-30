@@ -187,7 +187,8 @@ def statistic_convergence(nsamples=5000,ncomputepoints=50,nruns=50,ndims=10):
             tests.get_statistic_convergence(auxsamples,ncomputepoints)
 
     # check that the estimated "true" statistics agree
-    assert np.allclose(mh_truemean, aux_truemean) and np.allclose(mh_truevar, aux_truevar)
+    assert ((mh_truemean - aux_truemean)**2).sum() < 1e-5 \
+            and ((mh_truevar - aux_truevar)**2).sum() < 1e-5
 
     # get time scaling
     aux_timing = timing.get_auxvar_timing(data=data,alpha=alpha)

@@ -54,8 +54,8 @@ def get_statistic_convergence(chains,ncomputepoints):
     p = chains.shape[2]
 
     ### estimate true parameters using all samples
-    truemean = chains.mean(0).mean(0) # vector of length p
-    truevar = chains.reshape((-1,p)).var(0) # vector of length p
+    truemean = chains[:,chains.shape[1]//2:,:].mean(0).mean(0) # vector of length p
+    truevar = chains[:,chains.shape[1]//2:,:].reshape((-1,p)).var(0) # vector of length p
 
     ### compute statistics at the compute points
     # preallocate outputs
